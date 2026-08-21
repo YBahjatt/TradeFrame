@@ -69,9 +69,9 @@ Open `http://127.0.0.1:5173`.
 
 ## Version 1.0 Features
 
+- WF chat-ready copy chunks for quickly sharing buy or sell part lists. TradeFrame splits long lists into chat-safe messages so you can move from analysis to actual Warframe trading without manually formatting every part.
 - Dashboard with collection status, trading position, and portfolio history.
 - Prime inventory, missing, tradable, published, strategic assets, and trade history views.
-- Warframe chat-ready copy chunks for quickly sharing buy or sell part lists.
 - Published List controls for explicitly choosing which tradable parts may be shared later.
 - Settings for pricing display, value calculations, copy-message limits, and AlecaFrame data location.
 - Read-only AlecaFrame adapter boundary.
