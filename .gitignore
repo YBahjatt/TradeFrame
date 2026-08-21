@@ -1,0 +1,36 @@
+# Local user data
+data/*.sqlite
+data/*.sqlite3
+data/*.db
+data/*.db-*
+*.sqlite
+*.sqlite3
+*.db
+*.db-*
+
+# Secrets and local config
+.env
+*.env
+backend/.env
+
+# Logs and runtime files
+logs/
+*.log
+*.pid
+
+# Python
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-cache-files-*/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
