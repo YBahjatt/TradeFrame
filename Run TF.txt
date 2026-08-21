@@ -1,4 +1,0 @@
-cd D:\WebRoot\2025-12-16_theKhayal\TradeFrame\backend
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-cd D:\WebRoot\2025-12-16_theKhayal\TradeFrame\frontend
-npm.cmd run dev
