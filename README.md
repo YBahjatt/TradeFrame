@@ -6,6 +6,52 @@ TradeFrame is an independent fan-made tool and is not affiliated with Digital Ex
 
 TradeFrame is read-only toward AlecaFrame. It reads AlecaFrame's local data cache and stores its own analytics data in a local SQLite database.
 
+## First-Time Install
+
+TradeFrame v1.0 is a local Windows app that runs from the source folder. A packaged installer is planned later.
+
+Before installing TradeFrame, install:
+
+- [Git](https://git-scm.com/downloads)
+- [Python 3.12](https://www.python.org/downloads/) or newer
+- [Node.js LTS](https://nodejs.org/) with npm
+- AlecaFrame, with at least one successful Warframe data sync
+
+Clone TradeFrame:
+
+```powershell
+cd %USERPROFILE%\Desktop
+git clone https://github.com/YBahjatt/TradeFrame.git
+cd TradeFrame
+```
+
+Install backend dependencies:
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+deactivate
+cd ..
+```
+
+Install frontend dependencies:
+
+```powershell
+cd frontend
+npm.cmd install
+cd ..
+```
+
+Then start TradeFrame:
+
+```powershell
+.\Start TradeFrame.bat
+```
+
+No MySQL setup is required. TradeFrame creates its local SQLite database automatically.
+
 ## Run TradeFrame
 
 Use the launcher:
