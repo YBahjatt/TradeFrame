@@ -2,6 +2,8 @@
 
 TradeFrame is a desktop-first analytics tool for Warframe Prime collectors. It helps you understand what you own, what you are missing, what you can safely trade, and which parts you explicitly choose to publish. It can also generate Warframe chat-ready copy chunks so you can quickly share the parts you want to buy or sell without manually formatting long lists.
 
+TradeFrame is an independent fan-made tool and is not affiliated with Digital Extremes, Warframe, Overwolf, or AlecaFrame.
+
 TradeFrame is read-only toward AlecaFrame. It reads AlecaFrame's local data cache and stores its own analytics data in a local SQLite database.
 
 ## Run TradeFrame
