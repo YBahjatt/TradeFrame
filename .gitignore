@@ -18,6 +18,7 @@ backend/.env
 logs/
 *.log
 *.pid
+*.zip
 
 # Python
 backend/.venv/
