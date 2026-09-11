@@ -125,6 +125,14 @@ Open `http://127.0.0.1:5173`.
 - Settings for pricing display, value calculations, copy-message limits, and AlecaFrame data location.
 - Read-only AlecaFrame adapter boundary.
 
+## What Changed In v2.0
+
+Version 2.0 adds the Market Matches workflow. TradeFrame can now read public Warframe Market orders, look for users who are selling parts you currently need, check whether those same users have buy orders for parts you can safely spare, and show those mutual leads in a dedicated Market Matches tab.
+
+Market Matches is read-only. TradeFrame does not post orders to Warframe Market, does not automate messages, and does not send your missing list anywhere. It uses your local missing/tradable calculations, caches discovered public leads locally, refreshes data in the background, and generates short Warframe chat whisper text that you can copy manually.
+
+Version 2.0 also improves nested Prime build handling for items such as Akbronco, Aklex, and Akmagnus, so child Prime parts are reserved when they are needed for an unbuilt nested requirement instead of being treated as freely tradable.
+
 ## Roadmap
 
 - P2P Published List exchange.
