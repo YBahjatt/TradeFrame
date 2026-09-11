@@ -7,6 +7,7 @@ from app.config import get_settings
 from app.database.bootstrap import create_schema, seed_defaults
 from app.database.session import SessionLocal
 from app.services.portfolio import PortfolioService
+from app.services.market_matches import market_match_cache
 from app.services.sync import SyncService
 
 
@@ -33,3 +34,4 @@ def startup() -> None:
             PortfolioService(db).snapshot_today()
         except (AlecaAdapterError, FileNotFoundError, OSError, RuntimeError):
             pass
+    market_match_cache.start_background_refresh()

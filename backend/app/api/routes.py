@@ -6,9 +6,10 @@ from app.config import get_settings
 from app.database.bootstrap import seed_defaults
 from app.database.session import get_db
 from app.repositories.base import TradeRepository
-from app.schemas.dto import CollectionStatusDetail, Dashboard, DuplicateItem, InventoryRow, MarketImportResult, MissingItem, PortfolioHistory, StrategicAssets, SyncResult, TradablePartRow, TradeAnalysisResponse, TradeFrameSettings, TradeFrameSettingsUpdate, TradeRecommendation, TradeRow
+from app.schemas.dto import CollectionStatusDetail, Dashboard, DuplicateItem, InventoryRow, MarketImportResult, MarketMatchResponse, MissingItem, PortfolioHistory, StrategicAssets, SyncResult, TradablePartRow, TradeAnalysisResponse, TradeFrameSettings, TradeFrameSettingsUpdate, TradeRecommendation, TradeRow
 from app.services.collection import CollectionService
 from app.services.market import MarketPriceService
+from app.services.market_matches import market_match_cache
 from app.services.portfolio import PortfolioService
 from app.services.settings import SettingsService
 from app.services.sync import SyncService
@@ -84,6 +85,35 @@ def tradable(status: str | None = None, vaulted: str | None = None, db: Session 
 @router.get("/strategic-assets", response_model=StrategicAssets)
 def strategic_assets(db: Session = Depends(get_db)) -> StrategicAssets:
     return CollectionService(db).strategic_assets()
+
+
+@router.get("/market-matches", response_model=MarketMatchResponse)
+def market_matches(
+    max_missing_items: int = 0,
+    max_users: int = 0,
+    scan_owned_missing: str | None = None,
+    scan_not_missing: str | None = None,
+    apply_scan_scope: bool = False,
+    refresh: bool = False,
+    status_refresh: bool = False,
+) -> MarketMatchResponse:
+    scan_filters = None
+    if apply_scan_scope:
+        scan_filters = _market_lead_filters(scan_owned_missing or "", scan_not_missing or "")
+    return market_match_cache.get(max_missing_items=max_missing_items, max_users=max_users, refresh=refresh, scan_filters=scan_filters, status_refresh=status_refresh)
+
+
+def _market_lead_filters(owned_missing: str, not_missing: str) -> set[tuple[str, int]]:
+    filters: set[tuple[str, int]] = set()
+    for row_key, text in (("owned_mastered", owned_missing), ("not", not_missing)):
+        for raw in text.split(","):
+            try:
+                bucket = int(raw)
+            except ValueError:
+                continue
+            if bucket in (1, 2, 3, 4):
+                filters.add((row_key, bucket))
+    return filters
 
 
 @router.get("/duplicates", response_model=list[DuplicateItem])

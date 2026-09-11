@@ -191,6 +191,41 @@ export type StrategicAssets = {
   junk: StrategicAssetRow[];
 };
 
+export type MarketMatchItem = {
+  name: string;
+  chat_text: string;
+  quantity: number;
+  market_value: number;
+  platinum: number;
+  lead_tags: string[];
+};
+
+export type MarketUserMatch = {
+  user_name: string;
+  user_slug: string;
+  status: string | null;
+  last_seen: string | null;
+  reputation: number | null;
+  trade_fit_score: number;
+  they_sell: MarketMatchItem[];
+  they_buy: MarketMatchItem[];
+  copy_texts: string[];
+};
+
+export type MarketMatchResponse = {
+  matches: MarketUserMatch[];
+  scan_owned_missing: number[];
+  scan_not_missing: number[];
+  missing_items_checked: number;
+  missing_part_quantity_checked: number;
+  missing_part_types_total: number;
+  missing_part_quantity_total: number;
+  users_checked: number;
+  errors: string[];
+  generated_at: string | null;
+  refreshing: boolean;
+};
+
 export type TradeRow = {
   id: number;
   traded_at: string | null;
@@ -253,6 +288,16 @@ export const api = {
     if (vaulted) params.set("vaulted", vaulted);
     const query = params.toString();
     return getJson<TradablePartRow[]>(`/api/tradable${query ? `?${query}` : ""}`);
+  },
+  marketMatches: (refresh = false, scanFilters?: { ownedMissing?: number[]; notMissing?: number[] }, applyScanScope = false, statusRefresh = false) => {
+    const params = new URLSearchParams();
+    if (refresh) params.set("refresh", "true");
+    if (statusRefresh) params.set("status_refresh", "true");
+    if (applyScanScope) params.set("apply_scan_scope", "true");
+    if (applyScanScope || scanFilters?.ownedMissing?.length) params.set("scan_owned_missing", scanFilters?.ownedMissing?.join(",") ?? "");
+    if (applyScanScope || scanFilters?.notMissing?.length) params.set("scan_not_missing", scanFilters?.notMissing?.join(",") ?? "");
+    const query = params.toString();
+    return getJson<MarketMatchResponse>(`/api/market-matches${query ? `?${query}` : ""}`);
   },
   strategicAssets: () => getJson<StrategicAssets>("/api/strategic-assets"),
   duplicates: () => getJson<DuplicateItem[]>("/api/duplicates"),

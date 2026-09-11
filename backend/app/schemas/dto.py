@@ -295,3 +295,38 @@ class MarketImportResult(BaseModel):
     updated: int
     skipped: int
     failed: int
+
+
+class MarketMatchItem(BaseModel):
+    name: str
+    chat_text: str
+    quantity: int
+    market_value: float
+    platinum: float = 0
+    lead_tags: list[str] = []
+
+
+class MarketUserMatch(BaseModel):
+    user_name: str
+    user_slug: str
+    status: str | None = None
+    last_seen: str | None = None
+    reputation: int | None = None
+    trade_fit_score: float = 0
+    they_sell: list[MarketMatchItem]
+    they_buy: list[MarketMatchItem]
+    copy_texts: list[str]
+
+
+class MarketMatchResponse(BaseModel):
+    matches: list[MarketUserMatch]
+    scan_owned_missing: list[int] = []
+    scan_not_missing: list[int] = []
+    missing_items_checked: int
+    missing_part_quantity_checked: int = 0
+    missing_part_types_total: int = 0
+    missing_part_quantity_total: int = 0
+    users_checked: int
+    errors: list[str] = []
+    generated_at: str | None = None
+    refreshing: bool = False

@@ -11,6 +11,7 @@ import { TradesPage } from "./pages/Trades";
 import { StrategicAssetsPage } from "./pages/StrategicAssets";
 import { PublishedPage } from "./pages/Published";
 import { SettingsPage } from "./pages/Settings";
+import { MarketMatchesPage } from "./pages/MarketMatches";
 
 const router = createBrowserRouter([
   {
@@ -22,6 +23,7 @@ const router = createBrowserRouter([
       { path: "missing", element: <MissingPage /> },
       { path: "tradable", element: <DuplicatesPage /> },
       { path: "published", element: <PublishedPage /> },
+      { path: "market-matches", element: <MarketMatchesPage /> },
       { path: "strategic-assets", element: <StrategicAssetsPage /> },
       { path: "duplicates", element: <DuplicatesPage /> },
       { path: "trades", element: <TradesPage /> },

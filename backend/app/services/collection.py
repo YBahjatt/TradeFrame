@@ -74,7 +74,7 @@ class CollectionService:
         prime_groups = self._prime_item_groups(rows)
         prime_part_rows = [part for group in prime_groups.values() for part in group["parts"]]
         tradable_part_rows = self.tradable_parts("tradable", None)
-        missing_counts = [sum(1 for part in group["parts"] if part.owned_count <= 0) for group in prime_groups.values()]
+        missing_counts = [sum(1 for part in self._effective_set_math_parts(group, prime_groups) if part.owned_count <= 0) for group in prime_groups.values()]
         missing_prime_items = sum(1 for group in prime_groups.values() if not group["built"] and not group["mastered"])
         by_category: dict[str, list[InventoryRow]] = defaultdict(list)
         for row in prime_part_rows:
@@ -122,7 +122,7 @@ class CollectionService:
 
         for group in sorted(selected_groups, key=lambda candidate: str(candidate["parent_name"])):
             item_name = str(group["parent_name"])
-            parts = self._set_math_parts(group)
+            parts = self._effective_set_math_parts(group, groups)
             base = group.get("base")
             if row == "not":
                 complete_count, actionable_partial_sets = self._first_set_details(parts)
@@ -249,24 +249,27 @@ class CollectionService:
 
     def missing_collection(self) -> list[MissingItem]:
         rows = self.inventory_rows()
-        by_parent = self._missing_by_parent(rows)
-        all_by_parent: dict[str, list[InventoryRow]] = defaultdict(list)
-        for row in rows:
-            all_by_parent[self._parent_key(row)].append(row)
+        groups = self._prime_item_groups(rows)
         result = []
-        for parent, missing in by_parent.items():
-            group = all_by_parent[parent]
-            total = len(group)
-            owned = total - len(missing)
-            first = group[0]
+        for parent, group in groups.items():
+            if bool(group["built"] or group["mastered"]):
+                continue
+            parts = self._effective_set_math_parts(group, groups)
+            complete_count, partial_sets = self._first_set_details(parts)
+            if complete_count > 0 or not partial_sets:
+                continue
+            missing_names = sorted({name for missing in partial_sets for name in missing})
+            total = sum(part.required_count for part in parts)
+            missing_total = sum(part.quantity for part in self._collection_missing_parts(partial_sets[0]))
+            first = parts[0] if parts else group["base"]
             result.append(
                 MissingItem(
                     name=parent,
                     category=first.category,
                     item_type=first.item_type,
-                    missing_parts=[row.name for row in missing],
-                    collection_percent=round(100 * owned / total, 2) if total else 0,
-                    collection_gain_score=max(row.collection_value for row in missing),
+                    missing_parts=missing_names,
+                    collection_percent=round(100 * (total - missing_total) / total, 2) if total else 0,
+                    collection_gain_score=max((part.collection_value for part in parts if part.name in missing_names), default=0),
                 )
             )
         return sorted(result, key=lambda row: (-row.collection_gain_score, len(row.missing_parts), row.name))
@@ -275,6 +278,7 @@ class CollectionService:
     def tradable_parts(self, status: str | None = None, vaulted: str | None = None) -> list[TradablePartRow]:
         rows = self.inventory_rows()
         groups = self._prime_item_groups(rows)
+        nested_reservations = self._nested_part_reservations(groups)
         result: list[TradablePartRow] = []
         for group in groups.values():
             item_name = str(group["parent_name"])
@@ -283,17 +287,19 @@ class CollectionService:
             for part in group["parts"]:
                 if self._is_nested_prime_requirement(part):
                     continue
+                reserved_for_nested = nested_reservations.get(part.unique_name, 0)
                 if vaulted == "vaulted" and not part.vaulted:
                     continue
                 if vaulted == "not_vaulted" and part.vaulted:
                     continue
                 if needs_first_build:
-                    tradable_count = self._first_build_tradable_surplus(part)
-                    missing_count = max(0, part.required_count - part.owned_count)
+                    required_count = part.required_count + reserved_for_nested
+                    tradable_count = self._first_build_tradable_surplus(part, required_count)
+                    missing_count = max(0, required_count - part.owned_count)
                     tradable_reason = "Surplus after keeping first-build requirements"
                     missing_reason = "Needed for first build"
                 else:
-                    tradable_count = self._built_item_tradable_surplus(part, active_build)
+                    tradable_count = self._built_item_tradable_surplus(part, active_build, reserved_for_nested)
                     missing_count = 0
                     tradable_reason = "Item is built or mastered"
                     missing_reason = ""
@@ -308,7 +314,7 @@ class CollectionService:
         full_set_item_names = {
             str(group["parent_name"])
             for group in groups.values()
-            if self._set_multiplicity_details(self._set_math_parts(group))[0] > 0
+            if self._set_multiplicity_details(self._effective_set_math_parts(group, groups))[0] > 0
         }
         priced_tradable = [part for part in self.tradable_parts("tradable", None) if part.market_value > 0]
         tradable = sorted(
@@ -647,20 +653,19 @@ class CollectionService:
         owned_or_mastered = [group for group in groups.values() if (group["built"] or group["mastered"]) and self._has_set_parts(group)]
         not_owned_or_mastered = [group for group in groups.values() if not group["built"] and not group["mastered"] and self._has_set_parts(group)]
         return [
-            self._collection_status_row("Owned/Mastered", owned_or_mastered),
-            self._collection_status_row("Not", not_owned_or_mastered, built_count=len(not_owned_or_mastered)),
+            self._collection_status_row("Owned/Mastered", owned_or_mastered, groups),
+            self._collection_status_row("Not", not_owned_or_mastered, groups, built_count=len(not_owned_or_mastered)),
         ]
 
     @staticmethod
     def _has_set_parts(group: dict[str, object]) -> bool:
         return any(isinstance(part, InventoryRow) for part in group.get("parts", []))
 
-    @staticmethod
-    def _collection_status_row(label: str, groups: list[dict[str, object]], built_count: int | None = None) -> CollectionStatusRow:
+    def _collection_status_row(self, label: str, groups: list[dict[str, object]], all_groups: dict[str, dict[str, object]], built_count: int | None = None) -> CollectionStatusRow:
         complete_sets = 0
         missing_buckets = {1: 0, 2: 0, 3: 0, 4: 0}
         for group in groups:
-            parts = CollectionService._set_math_parts(group)
+            parts = self._effective_set_math_parts(group, all_groups)
             if label == "Not":
                 complete_count, partial_sets = CollectionService._first_set_details(parts)
             else:
@@ -689,20 +694,23 @@ class CollectionService:
     def _trading_position(self, groups: dict[str, dict[str, object]]) -> list[TradingPositionRow]:
         tradable = self._empty_position_buckets()
         missing = self._empty_position_buckets()
+        nested_reservations = self._nested_part_reservations(groups)
         for group in groups.values():
             needs_first_build = not bool(group["built"] or group["mastered"])
             active_build = self._active_build_group(group)
             for part in group["parts"]:
                 if self._is_nested_prime_requirement(part):
                     continue
+                reserved_for_nested = nested_reservations.get(part.unique_name, 0)
                 key = "vaulted" if part.vaulted else "not_vaulted"
                 price = part.market_value
                 if needs_first_build:
-                    missing_count = max(0, part.required_count - part.owned_count)
-                    tradable_count = self._first_build_tradable_surplus(part)
+                    required_count = part.required_count + reserved_for_nested
+                    missing_count = max(0, required_count - part.owned_count)
+                    tradable_count = self._first_build_tradable_surplus(part, required_count)
                 else:
                     missing_count = 0
-                    tradable_count = self._built_item_tradable_surplus(part, active_build)
+                    tradable_count = self._built_item_tradable_surplus(part, active_build, reserved_for_nested)
                 self._add_position_bucket(tradable[key], tradable_count, price)
                 self._add_position_bucket(missing[key], missing_count, price)
 
@@ -827,10 +835,68 @@ class CollectionService:
                 "built": base.direct_count > 0 or base.pending_count > 0,
                 "in_progress": base.pending_count > 0,
                 "mastered": base.mastered,
-                "complete_set": bool(parts) and all(part.owned_count >= part.required_count for part in self._set_math_parts({"base": base, "parts": parts})),
+                "complete_set": False,
                 "parts": parts,
             }
+        for group in groups.values():
+            parts = self._effective_set_math_parts(group, groups)
+            group["complete_set"] = bool(parts) and all(part.owned_count >= part.required_count for part in parts)
         return groups
+
+    def _effective_set_math_parts(
+        self,
+        group: dict[str, object],
+        groups: dict[str, dict[str, object]],
+        visiting: set[str] | None = None,
+    ) -> list[InventoryRow]:
+        parent_name = str(group.get("parent_name") or "")
+        visiting = set(visiting or set())
+        if parent_name in visiting:
+            return self._set_math_parts(group)
+        visiting.add(parent_name)
+        result: list[InventoryRow] = []
+        for part in self._set_math_parts(group):
+            if not self._is_nested_prime_requirement(part):
+                result.append(part)
+                continue
+            child_group = groups.get(part.name)
+            if child_group is None:
+                continue
+            child_base = child_group.get("base")
+            built_child_count = 0
+            if isinstance(child_base, InventoryRow):
+                built_child_count = max(0, child_base.direct_count + child_base.pending_count)
+            remaining_nested_sets = max(0, part.required_count - built_child_count)
+            if remaining_nested_sets <= 0:
+                continue
+            for child_part in self._effective_set_math_parts(child_group, groups, visiting):
+                if self._is_nested_prime_requirement(child_part):
+                    continue
+                result.append(
+                    child_part.model_copy(
+                        update={
+                            "required_count": child_part.required_count * remaining_nested_sets,
+                            "parent_name": parent_name,
+                        }
+                    )
+                )
+        return self._merge_effective_parts(result)
+
+    @staticmethod
+    def _merge_effective_parts(parts: list[InventoryRow]) -> list[InventoryRow]:
+        merged: dict[str, InventoryRow] = {}
+        for part in parts:
+            current = merged.get(part.unique_name)
+            if current is None:
+                merged[part.unique_name] = part
+                continue
+            merged[part.unique_name] = current.model_copy(
+                update={
+                    "required_count": current.required_count + part.required_count,
+                    "parent_name": current.parent_name,
+                }
+            )
+        return list(merged.values())
 
     @staticmethod
     def _set_math_parts(group: dict[str, object]) -> list[InventoryRow]:
@@ -845,32 +911,58 @@ class CollectionService:
                 result.append(part)
         return result
 
-    @staticmethod
-    def _tradable_prime_parts(groups: dict[str, dict[str, object]]) -> int:
+    def _tradable_prime_parts(self, groups: dict[str, dict[str, object]]) -> int:
         tradable = 0
+        nested_reservations = self._nested_part_reservations(groups)
         for group in groups.values():
             can_trade_all_parts = bool(group["built"] or group["mastered"])
             active_build = CollectionService._active_build_group(group)
             for part in group["parts"]:
                 if CollectionService._is_nested_prime_requirement(part):
                     continue
+                reserved_for_nested = nested_reservations.get(part.unique_name, 0)
                 if can_trade_all_parts:
-                    tradable += CollectionService._built_item_tradable_surplus(part, active_build)
+                    tradable += CollectionService._built_item_tradable_surplus(part, active_build, reserved_for_nested)
                 else:
-                    tradable += CollectionService._first_build_tradable_surplus(part)
+                    tradable += CollectionService._first_build_tradable_surplus(part, part.required_count + reserved_for_nested)
         return tradable
 
     @staticmethod
-    def _first_build_tradable_surplus(part: InventoryRow) -> int:
+    def _first_build_tradable_surplus(part: InventoryRow, required_count: int | None = None) -> int:
+        required = part.required_count if required_count is None else required_count
         non_tradable_coverage = max(0, part.owned_count - part.tradable_count)
-        tradable_needed_for_build = max(0, part.required_count - non_tradable_coverage)
+        tradable_needed_for_build = max(0, required - non_tradable_coverage)
         return max(0, part.tradable_count - tradable_needed_for_build)
 
     @staticmethod
-    def _built_item_tradable_surplus(part: InventoryRow, active_build: bool) -> int:
+    def _built_item_tradable_surplus(part: InventoryRow, active_build: bool, reserved_count: int = 0) -> int:
         if active_build:
-            return max(0, part.tradable_count - part.pending_count)
-        return max(0, part.tradable_count)
+            return max(0, part.tradable_count - part.pending_count - reserved_count)
+        return max(0, part.tradable_count - reserved_count)
+
+    def _nested_part_reservations(self, groups: dict[str, dict[str, object]]) -> dict[str, int]:
+        reservations: dict[str, int] = defaultdict(int)
+        for group in groups.values():
+            if bool(group["built"] or group["mastered"]):
+                continue
+            for part in CollectionService._set_math_parts(group):
+                if not CollectionService._is_nested_prime_requirement(part):
+                    continue
+                child_group = groups.get(part.name)
+                if child_group is None:
+                    continue
+                child_base = child_group.get("base")
+                built_child_count = 0
+                if isinstance(child_base, InventoryRow):
+                    built_child_count = max(0, child_base.direct_count + child_base.pending_count)
+                remaining_nested_sets = max(0, part.required_count - built_child_count)
+                if remaining_nested_sets <= 0:
+                    continue
+                for child_part in self._effective_set_math_parts(child_group, groups):
+                    if CollectionService._is_nested_prime_requirement(child_part):
+                        continue
+                    reservations[child_part.unique_name] += child_part.required_count * remaining_nested_sets
+        return dict(reservations)
 
     @staticmethod
     def _is_nested_prime_requirement(part: InventoryRow | None) -> bool:

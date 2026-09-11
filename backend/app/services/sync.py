@@ -94,7 +94,7 @@ class SyncService:
             self.db.commit()
             return SyncResult(
                 status="success",
-                message="AlecaFrame data synced into MySQL.",
+                message="Sync completed.",
                 inventory_rows=self.db.scalar(select(func.count()).select_from(Item)) or 0,
                 items=len(reference_items),
                 trades=self.db.scalar(select(func.count()).select_from(Trade)) or 0,

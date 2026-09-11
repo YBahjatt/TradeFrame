@@ -8,6 +8,7 @@ const links = [
   ["Missing", "/missing"],
   ["Tradable", "/tradable"],
   ["Published", "/published"],
+  ["Market Matches", "/market-matches"],
   ["Strategic Assets", "/strategic-assets"],
   ["Trades", "/trades"],
   ["Settings", "/settings"]

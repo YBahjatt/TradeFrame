@@ -72,8 +72,14 @@ class TradeRepository:
     def upsert(self, trade: Trade) -> None:
         existing = self.db.scalar(select(Trade).where(Trade.source == trade.source, Trade.source_line == trade.source_line))
         if existing:
+            trade_changed = any(getattr(existing, field) != getattr(trade, field) for field in ("traded_at", "partner", "classification", "given_text", "received_text"))
+            restoring_deleted = existing.duplicate_decision == "deleted"
             for field in ("traded_at", "partner", "classification", "given_text", "received_text"):
                 setattr(existing, field, getattr(trade, field))
+            if restoring_deleted:
+                existing.duplicate_decision = None
+            if trade_changed or restoring_deleted:
+                self._clear_analysis_cache(existing)
             return
         self.db.add(trade)
 
@@ -124,6 +130,17 @@ class TradeRepository:
         trade.duplicate_decision = decision
         self.db.commit()
         return True
+
+    @staticmethod
+    def _clear_analysis_cache(trade: Trade) -> None:
+        trade.market_delta = 0
+        trade.collection_gain = 0
+        trade.analysis_given_value = None
+        trade.analysis_received_value = None
+        trade.analysis_given_items = None
+        trade.analysis_received_items = None
+        trade.analysis_priced_at = None
+        trade.analysis_price_mode = None
 
     def _ordered_rows(self) -> list[Trade]:
         return sorted(

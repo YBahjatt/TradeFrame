@@ -8,7 +8,7 @@ TradeFrame is read-only toward AlecaFrame. It reads AlecaFrame's local data cach
 
 ## First-Time Install
 
-TradeFrame v1.0 is a local Windows app that runs from the source folder. A packaged installer is planned later.
+TradeFrame v2.0 is a local Windows app that runs from the source folder. A packaged installer is planned later.
 
 Before installing TradeFrame, install:
 
@@ -115,11 +115,12 @@ npm.cmd run dev
 
 Open `http://127.0.0.1:5173`.
 
-## Version 1.0 Features
+## Version 2.0 Features
 
 - WF chat-ready copy chunks for quickly sharing buy or sell part lists. TradeFrame splits long lists into chat-safe messages so you can move from analysis to actual Warframe trading without manually formatting every part.
 - Dashboard with collection status, trading position, and portfolio history.
-- Prime inventory, missing, tradable, published, strategic assets, and trade history views.
+- Prime inventory, missing, tradable, published, market matches, strategic assets, and trade history views.
+- Read-only Warframe Market lead matching that finds users who sell parts you need and buy parts you can spare, with cached background scanning and chat-ready trade messages.
 - Published List controls for explicitly choosing which tradable parts may be shared later.
 - Settings for pricing display, value calculations, copy-message limits, and AlecaFrame data location.
 - Read-only AlecaFrame adapter boundary.
